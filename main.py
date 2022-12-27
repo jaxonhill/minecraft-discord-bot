@@ -5,24 +5,6 @@ from discord import app_commands
 from discord.ext import commands
 import pymongo
 from pymongo import MongoClient
-import time
-
-test_json = [
-    {
-        "1260483": {
-            "spawn": {
-                "x": 15,
-                "y": 64,
-                "z": 125,
-            },
-            "skeleton spawner": {
-                "x": 50,
-                "y": 25,
-                "z": 424,
-            },
-        }
-    }
-]
 
 # Get the secret token for the bot
 load_dotenv(find_dotenv())
@@ -97,95 +79,110 @@ async def set_coords(
 
     # Ensure that there are not more than 20 locations as this is the max fields for embeds
     num_documents = collection.count_documents({})
-    print(num_documents)
     if num_documents >= 20:
         await interaction.response.send_message(
             "You have 20 locations. This is the max number. Delete one with the `/delete` command before adding another."
         )
         return
 
-    # If here, the inputs are valid
+    # If here, all inputs/parameters are valid
+    post_data = {"name": location_name, "x": x_coord, "y": y_coord, "z": z_coord}
+    try:
+        collection.insert_one(post_data)
+    except Exception as error:  # Let the user know if there was an error adding to the database
+        await interaction.response.send_message(
+            f"Something went wrong when adding the data. The error is: `{error}`"
+        )
+        return
+
     await interaction.response.send_message(
-        f"You created the location `{location_name}` with the coordinates :regional_indicator_x: `{x_coord}` :regional_indicator_y: `{y_coord}` :regional_indicator_z: `{z_coord}`"
+        f"You created the location `{location_name}` with the coordinates :regional_indicator_x: `{x_coord}`   :regional_indicator_y: `{y_coord}`   :regional_indicator_z: `{z_coord}`"
     )
+    return
 
 
 @bot.tree.command(name="list")
 async def get_list(interaction: discord.Interaction):
-    # TODO: Get the server ID right here
-    # num_of_locations = collection.count_documents({})
-    # print(num_of_locations)
+    num_of_locations = collection.count_documents({})
 
+    # If the number of locations is 0, then tell them they don't have any
+    if num_of_locations <= 0:
+        await interaction.response.send_message(
+            "You don't have any locations! Add one with the `/create_location` command."
+        )
+        return
+
+    # Otherwise start creating the Embed message
     embed = discord.Embed(
         title="Coordinates",
         color=discord.Color.blue(),
     )
 
-    embed.add_field(
-        name="spawn",
-        value=":regional_indicator_x: `25`   :regional_indicator_y: `73`   :regional_indicator_z: `2048`",
-        inline=False,
-    )
-    embed.add_field(
-        name="skeleton spawner",
-        value=":regional_indicator_x: `4022`   :regional_indicator_y: `34`   :regional_indicator_z: `158`",
-        inline=False,
-    )
+    # Retrieve all the locations and add them as fields to the embed
+    locations = collection.find({})
+
+    for location in locations:
+        embed.add_field(
+            name=location["name"],
+            value=f":regional_indicator_x: `{location['x']}`   :regional_indicator_y: `{location['y']}`   :regional_indicator_z: `{location['z']}`",
+            inline=False,
+        )
 
     await interaction.response.send_message(embed=embed)
+    return
 
 
 @bot.tree.command(name="get")
 @app_commands.describe(location_name="location:")
 async def get_location(interaction: discord.Interaction, location_name: str):
-    # TODO: Check if the location they entered matches one in the database
+    # Lowercase location_name and strip leading and trailing spaces to compare it to database
+    location_name.lower()
+    location_name.strip()
 
-    # if it does, then do the rest of this code
+    the_location = collection.find_one({"name": location_name})
+
+    # Check if the location they entered matches one in the database
+    if the_location == None:
+        await interaction.response.send_message(
+            f"Location: `{location_name}` does not exist. Check your spelling and check all locations with the `/list` command."
+        )
+        return
+
+    # If it does exist, then execute rest of code
     embed = discord.Embed(
-        title="skeleton spawner",
+        title=the_location["name"],
         color=discord.Color.blue(),
     )
 
     embed.add_field(
         name="Coordinates",
-        value=":regional_indicator_x: `4022`   :regional_indicator_y: `34`   :regional_indicator_z: `158`",
+        value=f":regional_indicator_x: `{the_location['x']}`   :regional_indicator_y: `{the_location['y']}`   :regional_indicator_z: `{the_location['z']}`",
     )
 
     await interaction.response.send_message(embed=embed)
+    return
+
+
+@bot.tree.command(name="delete")
+@app_commands.describe(location_name="location:")
+async def delete_location(interaction: discord.Interaction, location_name: str):
+    # Lowercase location_name and strip leading and trailing spaces to compare it to database
+    location_name.lower()
+    location_name.strip()
+
+    the_location = collection.find_one({"name": location_name})
+
+    # Check if the location they entered matches one in the database
+    if the_location == None:
+        await interaction.response.send_message(
+            f"Location: `{location_name}` does not exist. Check your spelling and check all locations with the `/list` command. Location names are case sensitive."
+        )
+        return
+
+    # If it does exist, then delete it from the database
+    collection.delete_one({"name": the_location["name"]})
+    await interaction.response.send_message(f"Deleted the location: `{location_name}`")
+    return
 
 
 bot.run(TOKEN)
-
-
-# class MyClient(discord.Client):
-#     async def on_ready(self):
-#         print(f"Logged on as {self.user}")
-
-#     async def on_message(self, message):
-#         # If the message is from the bot itself, do not do anything
-#         if message.author == self.user:
-#             return
-
-#         user_message = ""
-
-#         # Check that they used the command prefix
-#         if message.content[0] == "?":
-#             # Then set the user's command to the
-#             user_command = message.content[1:]
-#         else:
-#             return
-
-#         print(f"Message from {message.author}: {message.content}")
-
-
-# # Get the secret token for the bot
-# load_dotenv(find_dotenv())
-# TOKEN = os.getenv("TOKEN")
-# print(TOKEN)
-
-# # Create intents and create the instance of the bot
-# intents = discord.Intents.default()
-# intents.message_content = True
-# client = MyClient(intents=intents)
-
-# client.run(TOKEN)
