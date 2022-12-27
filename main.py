@@ -3,10 +3,38 @@ from dotenv import load_dotenv, find_dotenv
 import discord
 from discord import app_commands
 from discord.ext import commands
+import pymongo
+from pymongo import MongoClient
+import time
+
+test_json = [
+    {
+        "1260483": {
+            "spawn": {
+                "x": 15,
+                "y": 64,
+                "z": 125,
+            },
+            "skeleton spawner": {
+                "x": 50,
+                "y": 25,
+                "z": 424,
+            },
+        }
+    }
+]
 
 # Get the secret token for the bot
 load_dotenv(find_dotenv())
 TOKEN = os.getenv("TOKEN")
+
+# Initialize connection to the MongoDB database
+MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
+cluster = MongoClient(
+    f"mongodb+srv://jaxon20:{MONGO_PASSWORD}@craftbot.vccx7r0.mongodb.net/?retryWrites=true&w=majority"
+)
+db = cluster["Craftbot"]
+collection = db["locations"]
 
 # Create intents
 intents = discord.Intents.default()
@@ -27,21 +55,8 @@ async def on_ready():
         print(err)
 
 
-@bot.tree.command(name="hello")
-async def hello(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        f"Hey {interaction.user.mention}! This is a slash command"
-    )
-
-
-@bot.tree.command(name="say")
-@app_commands.describe(arg="What should I say?")
-async def say(interaction: discord.Interaction, arg: str):
-    await interaction.response.send_message(f"{interaction.user.name} said `{arg}`")
-
-
 @bot.tree.command(name="create_location")
-@app_commands.describe(location_name="name:", x_coord="X:", y_coord="Y:", z_coord="Z:")
+@app_commands.describe(location_name="name:", x_coord="x:", y_coord="y:", z_coord="z:")
 async def set_coords(
     interaction: discord.Interaction,
     location_name: str,
@@ -49,9 +64,15 @@ async def set_coords(
     y_coord: str,
     z_coord: str,
 ):
-    # Ensure they entered valid string entry for location
-    # TODO: When you have database, ensure that the location they are entering does not already
-    # exist in their list of places. If it does, then explain this to them with await interaction...
+
+    # Remove leading and trailing spaces from all the parameters just in case the user added some
+    location_name.strip()
+    x_coord.strip()
+    y_coord.strip()
+    z_coord.strip()
+
+    # Lower case location names to make them easier to sort and find
+    location_name = location_name.lower()
 
     # Ensure they entered valid integers for coordinates
     try:
@@ -67,11 +88,70 @@ async def set_coords(
         # Retrun to exit out of this and not execute rest of code
         return
 
+    # Ensure that location does not already exist
+    if collection.find_one({"name": location_name}) != None:
+        await interaction.response.send_message(
+            f"Location: `{location_name}` already exists. Check all locations with the `/list` command."
+        )
+        return
+
+    # Ensure that there are not more than 20 locations as this is the max fields for embeds
+    num_documents = collection.count_documents({})
+    print(num_documents)
+    if num_documents >= 20:
+        await interaction.response.send_message(
+            "You have 20 locations. This is the max number. Delete one with the `/delete` command before adding another."
+        )
+        return
+
     # If here, the inputs are valid
     await interaction.response.send_message(
-        f"You created the location `{location_name}` with the coordinates \
-    X: `{x_coord}` Y: `{y_coord}` Z: `{z_coord}`"
+        f"You created the location `{location_name}` with the coordinates :regional_indicator_x: `{x_coord}` :regional_indicator_y: `{y_coord}` :regional_indicator_z: `{z_coord}`"
     )
+
+
+@bot.tree.command(name="list")
+async def get_list(interaction: discord.Interaction):
+    # TODO: Get the server ID right here
+    # num_of_locations = collection.count_documents({})
+    # print(num_of_locations)
+
+    embed = discord.Embed(
+        title="Coordinates",
+        color=discord.Color.blue(),
+    )
+
+    embed.add_field(
+        name="spawn",
+        value=":regional_indicator_x: `25`   :regional_indicator_y: `73`   :regional_indicator_z: `2048`",
+        inline=False,
+    )
+    embed.add_field(
+        name="skeleton spawner",
+        value=":regional_indicator_x: `4022`   :regional_indicator_y: `34`   :regional_indicator_z: `158`",
+        inline=False,
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="get")
+@app_commands.describe(location_name="location:")
+async def get_location(interaction: discord.Interaction, location_name: str):
+    # TODO: Check if the location they entered matches one in the database
+
+    # if it does, then do the rest of this code
+    embed = discord.Embed(
+        title="skeleton spawner",
+        color=discord.Color.blue(),
+    )
+
+    embed.add_field(
+        name="Coordinates",
+        value=":regional_indicator_x: `4022`   :regional_indicator_y: `34`   :regional_indicator_z: `158`",
+    )
+
+    await interaction.response.send_message(embed=embed)
 
 
 bot.run(TOKEN)
