@@ -37,6 +37,16 @@ async def on_ready():
         print(err)
 
 
+@bot.event
+async def on_resumed():
+    print("Bot resumed!")
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} commands")
+    except Exception as err:
+        print(err)
+
+
 @bot.tree.command(name="create_location")
 @app_commands.describe(location_name="name:", x_coord="x:", y_coord="y:", z_coord="z:")
 async def set_coords(
@@ -46,7 +56,7 @@ async def set_coords(
     y_coord: str,
     z_coord: str,
 ):
-
+    print("CALLED!")
     # Remove leading and trailing spaces from all the parameters just in case the user added some
     location_name.strip()
     x_coord.strip()
@@ -85,7 +95,9 @@ async def set_coords(
         )
         return
 
-    # If here, all inputs/parameters are valid
+    print("GOT HERE CREATE!")
+
+    # If here, all in puts/parameters are valid
     post_data = {"name": location_name, "x": x_coord, "y": y_coord, "z": z_coord}
     try:
         collection.insert_one(post_data)
@@ -98,11 +110,12 @@ async def set_coords(
     await interaction.response.send_message(
         f"You created the location `{location_name}` with the coordinates :regional_indicator_x: `{x_coord}`   :regional_indicator_y: `{y_coord}`   :regional_indicator_z: `{z_coord}`"
     )
-    return
 
 
 @bot.tree.command(name="list")
 async def get_list(interaction: discord.Interaction):
+    print("CALLED!")
+    print("GOT HERE LIST!")
     num_of_locations = collection.count_documents({})
 
     # If the number of locations is 0, then tell them they don't have any
@@ -129,22 +142,24 @@ async def get_list(interaction: discord.Interaction):
         )
 
     await interaction.response.send_message(embed=embed)
-    return
 
 
 @bot.tree.command(name="get")
-@app_commands.describe(location_name="location:")
-async def get_location(interaction: discord.Interaction, location_name: str):
-    # Lowercase location_name and strip leading and trailing spaces to compare it to database
-    location_name.lower()
-    location_name.strip()
+@app_commands.describe(new_location_name="location:")
+async def get_location(interaction: discord.Interaction, new_location_name: str):
+    print("CALLED!")
+    # Lowercase new_location_name and strip leading and trailing spaces to compare it to database
+    new_location_name.lower()
+    new_location_name.strip()
 
-    the_location = collection.find_one({"name": location_name})
+    print("GOT HERE GET!")
+
+    the_location = collection.find_one({"name": new_location_name})
 
     # Check if the location they entered matches one in the database
     if the_location == None:
         await interaction.response.send_message(
-            f"Location: `{location_name}` does not exist. Check your spelling and check all locations with the `/list` command."
+            f"Location: `{new_location_name}` does not exist. Check your spelling and check all locations with the `/list` command."
         )
         return
 
@@ -160,29 +175,32 @@ async def get_location(interaction: discord.Interaction, location_name: str):
     )
 
     await interaction.response.send_message(embed=embed)
-    return
 
 
 @bot.tree.command(name="delete")
-@app_commands.describe(location_name="location:")
-async def delete_location(interaction: discord.Interaction, location_name: str):
-    # Lowercase location_name and strip leading and trailing spaces to compare it to database
-    location_name.lower()
-    location_name.strip()
+@app_commands.describe(another_location_name="location:")
+async def delete_location(interaction: discord.Interaction, another_location_name: str):
+    print("CALLED!")
+    # Lowercase another_location_name and strip leading and trailing spaces to compare it to database
+    another_location_name.lower()
+    another_location_name.strip()
 
-    the_location = collection.find_one({"name": location_name})
+    print("GOT HERE DELETE!")
+
+    the_location = collection.find_one({"name": another_location_name})
 
     # Check if the location they entered matches one in the database
     if the_location == None:
         await interaction.response.send_message(
-            f"Location: `{location_name}` does not exist. Check your spelling and check all locations with the `/list` command. Location names are case sensitive."
+            f"Location: `{another_location_name}` does not exist. Check your spelling and check all locations with the `/list` command. Location names are case sensitive."
         )
         return
 
     # If it does exist, then delete it from the database
     collection.delete_one({"name": the_location["name"]})
-    await interaction.response.send_message(f"Deleted the location: `{location_name}`")
-    return
+    await interaction.response.send_message(
+        f"Deleted the location: `{another_location_name}`"
+    )
 
 
 bot.run(TOKEN)
