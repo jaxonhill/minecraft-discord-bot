@@ -56,7 +56,6 @@ async def set_coords(
     y_coord: str,
     z_coord: str,
 ):
-    print("CALLED!")
     # Remove leading and trailing spaces from all the parameters just in case the user added some
     location_name.strip()
     x_coord.strip()
@@ -95,8 +94,6 @@ async def set_coords(
         )
         return
 
-    print("GOT HERE CREATE!")
-
     # If here, all in puts/parameters are valid
     post_data = {"name": location_name, "x": x_coord, "y": y_coord, "z": z_coord}
     try:
@@ -114,8 +111,6 @@ async def set_coords(
 
 @bot.tree.command(name="list")
 async def get_list(interaction: discord.Interaction):
-    print("CALLED!")
-    print("GOT HERE LIST!")
     num_of_locations = collection.count_documents({})
 
     # If the number of locations is 0, then tell them they don't have any
@@ -147,12 +142,9 @@ async def get_list(interaction: discord.Interaction):
 @bot.tree.command(name="get")
 @app_commands.describe(new_location_name="location:")
 async def get_location(interaction: discord.Interaction, new_location_name: str):
-    print("CALLED!")
     # Lowercase new_location_name and strip leading and trailing spaces to compare it to database
     new_location_name.lower()
     new_location_name.strip()
-
-    print("GOT HERE GET!")
 
     the_location = collection.find_one({"name": new_location_name})
 
@@ -180,12 +172,9 @@ async def get_location(interaction: discord.Interaction, new_location_name: str)
 @bot.tree.command(name="delete")
 @app_commands.describe(another_location_name="location:")
 async def delete_location(interaction: discord.Interaction, another_location_name: str):
-    print("CALLED!")
     # Lowercase another_location_name and strip leading and trailing spaces to compare it to database
     another_location_name.lower()
     another_location_name.strip()
-
-    print("GOT HERE DELETE!")
 
     the_location = collection.find_one({"name": another_location_name})
 
@@ -203,4 +192,5 @@ async def delete_location(interaction: discord.Interaction, another_location_nam
     )
 
 
-bot.run(TOKEN)
+if __name__ == "__main__":
+    bot.run(TOKEN)
